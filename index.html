@@ -373,9 +373,9 @@
       }).join("");
     }
 
-    function setLastUpdated() {
-      const now = new Date();
-      lastUpdatedEl.textContent = now.toLocaleTimeString("nl-NL");
+    function setLastUpdated(timestamp) {
+      const date = timestamp ? new Date(timestamp) : new Date();
+      lastUpdatedEl.textContent = date.toLocaleTimeString("nl-NL");
     }
 
     async function fetchStandings() {
@@ -385,9 +385,9 @@
           throw new Error("Server gaf status " + response.status);
         }
         const payload = await response.json();
-        standingsData = payload;
+        standingsData = payload.standings || payload;
         renderTable();
-        setLastUpdated();
+        setLastUpdated(payload.generated_at);
       } catch (error) {
         standingsBodyEl.innerHTML =
           '<tr><td colspan="4" class="error">Fout bij ophalen live data: ' +
