@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Parijs-Roubaix Live Tracker</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  >
+  <style>
+    :root {
+      --bg: #0e1116;
+      --surface: #171b22;
+      --surface-2: #1f2530;
+      --text: #e7edf5;
+      --muted: #9aacbf;
+      --accent: #4ea3ff;
+      --accent-soft: rgba(78, 163, 255, 0.2);
+      --border: #2b3443;
+      --success: #8ad27f;
+      --danger: #ff8c8c;
+      --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      background: radial-gradient(circle at top right, #1b2230 0%, var(--bg) 40%);
+      color: var(--text);
+    }
+
+    .container {
+      width: min(1200px, 94vw);
+      margin: 24px auto 36px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .header-card {
+      background: linear-gradient(145deg, #161c27 0%, #121821 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .title-wrap h1 {
+      margin: 0 0 6px;
+      font-size: clamp(1.25rem, 1rem + 1.5vw, 2rem);
+      letter-spacing: 0.2px;
+    }
+
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.96rem;
+    }
+
+    .status-wrap {
+      text-align: right;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .status-wrap strong {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .status-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      color: var(--success);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 0 0 rgba(138, 210, 127, 0.8);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(138, 210, 127, 0.8); }
+      70% { box-shadow: 0 0 0 10px rgba(138, 210, 127, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(138, 210, 127, 0); }
+    }
+
+    .tabs-card,
+    .map-card,
+    .table-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .tabs-card {
+      padding: 10px;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .tab-btn {
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(180deg, #2b73be 0%, #245f9a 100%);
+      border-color: #4899ec;
+      color: #f4f9ff;
+      box-shadow: 0 4px 16px var(--accent-soft);
+    }
+
+    .map-card {
+      padding: 12px;
+    }
+
+    #map {
+      width: 100%;
+      height: min(54vh, 460px);
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .table-card {
+      overflow: hidden;
+    }
+
+    .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      background: #141a24;
+    }
+
+    .table-header h2 {
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 640px;
+    }
+
+    thead th {
+      text-align: left;
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 12px 16px;
+      background: #161d28;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody td {
+      padding: 11px 16px;
+      border-bottom: 1px solid rgba(43, 52, 67, 0.7);
+      font-size: 0.95rem;
+    }
+
+    tbody tr:hover {
+      background: rgba(78, 163, 255, 0.08);
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .pos {
+      width: 90px;
+      font-weight: 700;
+      color: #d8e8ff;
+    }
+
+    .gap {
+      white-space: nowrap;
+      color: var(--muted);
+    }
+
+    .leader {
+      color: var(--success);
+      font-weight: 700;
+    }
+
+    .error {
+      color: var(--danger);
+      font-weight: 600;
+    }
+
+    @media (max-width: 760px) {
+      .container {
+        width: 95vw;
+        margin-top: 14px;
+      }
+
+      .tabs {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .header-card {
+        padding: 14px;
+      }
+
+      .status-wrap {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="header-card">
+      <div class="title-wrap">
+        <h1>Parijs-Roubaix Live Tracker</h1>
+        <p class="subtitle">Route-overzicht en live klassementen</p>
+      </div>
+      <div class="status-wrap">
+        <div class="status-live"><span class="status-dot"></span>LIVE</div>
+        <div>Laatst bijgewerkt: <strong id="last-updated">-</strong></div>
+        <div>Volgende refresh over <strong id="countdown">60</strong>s</div>
+      </div>
+    </section>
+
+    <section class="tabs-card">
+      <div class="tabs" id="tabs"></div>
+    </section>
+
+    <section class="map-card">
+      <div id="map" role="application" aria-label="Routekaart Parijs-Roubaix"></div>
+    </section>
+
+    <section class="table-card">
+      <div class="table-header">
+        <h2 id="table-title">Klassement</h2>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Positie</th>
+              <th>Naam</th>
+              <th>Team</th>
+              <th>Verschil</th>
+            </tr>
+          </thead>
+          <tbody id="standings-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script>
+    const categories = [
+      { key: "junioren", label: "Junioren" },
+      { key: "beloften", label: "Beloften" },
+      { key: "vrouwen", label: "Vrouwen" },
+      { key: "elite_mannen", label: "Elite mannen" }
+    ];
+
+    let activeCategory = "junioren";
+    let standingsData = {};
+    let refreshCountdown = 60;
+    let countdownTimer = null;
+
+    const tabsEl = document.getElementById("tabs");
+    const tableTitleEl = document.getElementById("table-title");
+    const standingsBodyEl = document.getElementById("standings-body");
+    const lastUpdatedEl = document.getElementById("last-updated");
+    const countdownEl = document.getElementById("countdown");
+
+    function buildTabs() {
+      tabsEl.innerHTML = "";
+      categories.forEach((category) => {
+        const button = document.createElement("button");
+        button.className = "tab-btn";
+        button.type = "button";
+        button.textContent = category.label;
+        button.dataset.category = category.key;
+        if (category.key === activeCategory) {
+          button.classList.add("active");
+        }
+        button.addEventListener("click", () => {
+          activeCategory = category.key;
+          renderTabsState();
+          renderTable();
+        });
+        tabsEl.appendChild(button);
+      });
+    }
+
+    function renderTabsState() {
+      const tabButtons = tabsEl.querySelectorAll(".tab-btn");
+      tabButtons.forEach((btn) => {
+        const isActive = btn.dataset.category === activeCategory;
+        btn.classList.toggle("active", isActive);
+      });
+    }
+
+    function renderTable() {
+      const categoryInfo = categories.find((c) => c.key === activeCategory);
+      const label = categoryInfo ? categoryInfo.label : "Klassement";
+      tableTitleEl.textContent = "Klassement - " + label;
+
+      const rows = standingsData[activeCategory] || [];
+      if (!rows.length) {
+        standingsBodyEl.innerHTML = '<tr><td colspan="4" class="error">Geen data beschikbaar.</td></tr>';
+        return;
+      }
+
+      standingsBodyEl.innerHTML = rows.map((row) => {
+        const isLeader = row.gap === "Leider";
+        return (
+          "<tr>" +
+            '<td class="pos">' + row.position + "</td>" +
+            "<td>" + row.name + "</td>" +
+            "<td>" + row.team + "</td>" +
+            '<td class="gap ' + (isLeader ? "leader" : "") + '">' + row.gap + "</td>" +
+          "</tr>"
+        );
+      }).join("");
+    }
+
+    function setLastUpdated() {
+      const now = new Date();
+      lastUpdatedEl.textContent = now.toLocaleTimeString("nl-NL");
+    }
+
+    async function fetchStandings() {
+      try {
+        const response = await fetch("/api/standings", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("Server gaf status " + response.status);
+        }
+        const payload = await response.json();
+        standingsData = payload;
+        renderTable();
+        setLastUpdated();
+      } catch (error) {
+        standingsBodyEl.innerHTML =
+          '<tr><td colspan="4" class="error">Fout bij ophalen live data: ' +
+          error.message +
+          "</td></tr>";
+      }
+    }
+
+    function startCountdown() {
+      if (countdownTimer) {
+        clearInterval(countdownTimer);
+      }
+      refreshCountdown = 60;
+      countdownEl.textContent = String(refreshCountdown);
+      countdownTimer = setInterval(() => {
+        refreshCountdown -= 1;
+        if (refreshCountdown <= 0) {
+          refreshCountdown = 60;
+        }
+        countdownEl.textContent = String(refreshCountdown);
+      }, 1000);
+    }
+
+    function initMap() {
+      const map = L.map("map", { zoomControl: true }).setView([49.6, 3.6], 9);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+        attribution: "&copy; OpenStreetMap contributors"
+      }).addTo(map);
+
+      const routeCoordinates = [
+        [49.4176, 2.8234], // Compiegne
+        [49.5200, 3.0500],
+        [49.6500, 3.1800],
+        [49.7600, 3.2600],
+        [49.8800, 3.3000],
+        [50.0000, 3.3300],
+        [50.1400, 3.3500],
+        [50.2206, 3.1546]  // Roubaix
+      ];
+
+      const polyline = L.polyline(routeCoordinates, {
+        color: "#4ea3ff",
+        weight: 4,
+        opacity: 0.9
+      }).addTo(map);
+
+      L.marker(routeCoordinates[0]).addTo(map).bindPopup("Start: Compiègne");
+      L.marker(routeCoordinates[routeCoordinates.length - 1]).addTo(map).bindPopup("Finish: Roubaix Velodrome");
+
+      map.fitBounds(polyline.getBounds(), { padding: [20, 20] });
+    }
+
+    async function initialLoad() {
+      buildTabs();
+      initMap();
+      await fetchStandings();
+      startCountdown();
+      setInterval(async () => {
+        await fetchStandings();
+      }, 60000);
+    }
+
+    initialLoad();
+  </script>
+</body>
+</html>
